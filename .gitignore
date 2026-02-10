@@ -1,0 +1,41 @@
+# Dependencies
+/ci4/vendor/
+/ci4/writable/cache/*
+/ci4/writable/logs/*
+/ci4/writable/session/*
+/ci4/writable/uploads/*
+
+# Environment files
+/ci4/.env
+/.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test files (keep if needed, exclude if sensitive)
+test_*.php
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Node modules (if using npm for frontend tools)
+node_modules/

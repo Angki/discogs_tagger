@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discogs Tagger</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div id="app-container">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <span style="font-weight:bold; margin-right:20px;">Discogs Tagger</span>
+            <input type="text" id="search-query" placeholder="Search Discogs..." style="width: 300px;">
+            <button id="btn-search">Search</button>
+            <div style="flex:1"></div>
+            <button id="btn-auto-search" class="secondary">✨ Auto Smart Search (from Selection)</button>
+            <button id="btn-apply-tags" disabled>Apply Tags</button>
+        </div>
+
+        <!-- Breadcrumbs -->
+        <div id="breadcrumbs">
+            <span class="crumb">Home</span>
+        </div>
+
+        <div class="main-split">
+            <!-- Main Grid Area -->
+            <div style="flex: 1; display:flex; flex-direction:column; overflow:hidden;">
+                <main id="main-view">
+                    <!-- Grid rendered here -->
+                </main>
+                <!-- Detail Panel (Fixed Height Bottom) -->
+                <div id="album-detail-panel" style="display:none;">
+                    <!-- JS Injected -->
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Search Results -->
+            <aside id="right-sidebar">
+                <div class="panel-header" style="background:var(--header-bg); padding:10px; font-weight:bold;">
+                    Discogs Matches
+                </div>
+                <div id="search-pools" style="overflow-y:auto; flex:1;">
+                    <div style="padding:20px; color:#666; text-align:center;">
+                        Select an album and click "Auto Smart Search"
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>

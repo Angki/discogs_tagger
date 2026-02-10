@@ -1,0 +1,12 @@
+{
+    "require": {
+        "guzzlehttp/guzzle": "*",
+        "james-heinrich/getid3": "*",
+        "vlucas/phpdotenv": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}
