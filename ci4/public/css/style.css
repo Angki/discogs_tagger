@@ -1,0 +1,104 @@
+/* Minimal overrides for Bootstrap */
+:root {
+    --bs-body-bg: #121212;
+    --bs-dark-rgb: 33, 37, 41;
+}
+
+body {
+    background-color: var(--bs-body-bg);
+}
+
+/* Animations */
+.album-card {
+    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.2s ease;
+}
+
+.album-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    z-index: 5;
+}
+
+.pool-item.active {
+    background-color: var(--bs-primary) !important;
+    border-color: var(--bs-primary) !important;
+}
+
+/* Inline Detail Panel Styling */
+/* Detail Panel Animation */
+.detail-panel-container {
+    animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: top;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: scaleY(0.9) translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scaleY(1) translateY(0);
+    }
+}
+
+.detail-arrow {
+    position: absolute;
+    top: -10px;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 10px solid #6c757d;
+    /* Matches border-secondary */
+    transform: translateX(-50%);
+    z-index: 10;
+}
+
+.detail-arrow::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: -10px;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 10px solid #212529;
+    /* Matches bg-dark */
+}
+
+/* Theme adaptation for Arrow */
+[data-bs-theme="light"] .detail-arrow::after {
+    border-bottom-color: #f8f9fa;
+    /* bg-light/tertiaryish */
+}
+
+[data-bs-theme="dark"] .detail-arrow::after {
+    border-bottom-color: #212529;
+    /* bg-dark */
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+/* ... rest matches theme usually, but let's stick to dark scrollbars for "app" feel or adapt */
+[data-bs-theme="dark"] ::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+[data-bs-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: #444;
+}
+
+[data-bs-theme="light"] ::-webkit-scrollbar-track {
+    background: #e9ecef;
+}
+
+[data-bs-theme="light"] ::-webkit-scrollbar-thumb {
+    background: #adb5bd;
+}
