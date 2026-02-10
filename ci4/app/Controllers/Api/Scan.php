@@ -26,6 +26,10 @@ class Scan extends ResourceController
                 return $this->respond($this->scanner->scanDir($path));
             case 'list_files':
                 return $this->respond($this->scanner->getAlbums($path));
+            case 'list_files_with_metadata':
+                // New endpoint for hierarchical view with metadata
+                $force = $this->request->getGet('force') === '1';
+                return $this->respond($this->scanner->getAlbumsWithMetadata($path, $force));
             case 'list_tracks':
                 return $this->respond($this->scanner->getTracks($path));
             case 'get_cover':

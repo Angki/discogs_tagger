@@ -9,7 +9,8 @@ const state = {
     searchResults: {},
     selectedRelease: null,
     detailPanelEl: null, // Track the dynamic panel
-    isSmartView: false, // New Smart View Toggle
+    isSmartView: false, // Smart View Toggle for split releases
+    isHierarchicalView: true, // MusicBee-style hierarchical view (Artist -> Year)
     items: [] // Keep track of current raw items for toggling
 };
 
@@ -24,13 +25,17 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFolders();
 });
 
-async function loadFolders(path = '') {
+async function loadFolders(path = '', forceRefresh = false) {
     try {
         els.mainView.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">Loading...</div></div>';
 
+        // Use metadata endpoint for hierarchical view
+        const action = state.isHierarchicalView ? 'list_files_with_metadata' : 'list_files';
+        const forceParam = forceRefresh ? '&force=1' : '';
+        
         const [dirsRes, albumsRes] = await Promise.all([
             fetch(`api/scan?action=list_dirs&path=${encodeURIComponent(path)}`),
-            fetch(`api/scan?action=list_files&path=${encodeURIComponent(path)}`)
+            fetch(`api/scan?action=${action}&path=${encodeURIComponent(path)}${forceParam}`)
         ]);
 
         const dirs = await dirsRes.json();
@@ -67,7 +72,20 @@ function updateBreadcrumbs(path) {
     home.onclick = (e) => { e.preventDefault(); loadFolders(''); };
     els.breadcrumbs.appendChild(home);
 
-    // Smart View Toggle
+    // Hierarchical View Toggle
+    const hierarchicalBtn = document.createElement('button');
+    hierarchicalBtn.innerHTML = state.isHierarchicalView
+        ? '<i class="bi bi-grid-3x3-gap-fill text-success"></i>'
+        : '<i class="bi bi-grid-3x3-gap"></i>';
+    hierarchicalBtn.className = `btn btn-sm ${state.isHierarchicalView ? 'btn-dark border-success' : 'btn-outline-secondary'} border-0 ms-2`;
+    hierarchicalBtn.title = "Toggle Hierarchical View (by Artist)";
+    hierarchicalBtn.onclick = () => {
+        state.isHierarchicalView = !state.isHierarchicalView;
+        loadFolders(state.currentPath); // Reload to fetch metadata if needed
+    };
+    els.breadcrumbs.appendChild(hierarchicalBtn);
+
+    // Smart View Toggle (for split releases)
     const smartBtn = document.createElement('button');
     smartBtn.innerHTML = state.isSmartView
         ? '<i class="bi bi-diagram-3-fill text-info"></i>'
@@ -80,6 +98,14 @@ function updateBreadcrumbs(path) {
         updateBreadcrumbs(state.currentPath);
     };
     els.breadcrumbs.appendChild(smartBtn);
+
+    // Force Refresh Button
+    const refreshBtn = document.createElement('button');
+    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+    refreshBtn.className = 'btn btn-sm btn-outline-secondary border-0 ms-2';
+    refreshBtn.title = "Force Refresh Cache";
+    refreshBtn.onclick = () => loadFolders(state.currentPath, true);
+    els.breadcrumbs.appendChild(refreshBtn);
 
     const separator = document.createElement('span');
     separator.innerHTML = '<span class="mx-2 text-secondary">|</span>';
@@ -106,8 +132,15 @@ function updateBreadcrumbs(path) {
 }
 
 function renderAlbumGrid(items) {
+    // Apply smart grouping for split releases if enabled
     if (state.isSmartView) {
         items = smartGroupAlbums(items);
+    }
+
+    // Apply hierarchical grouping if enabled
+    if (state.isHierarchicalView) {
+        renderGroupedAlbums(items);
+        return;
     }
 
     els.mainView.innerHTML = '';
@@ -183,6 +216,193 @@ function renderAlbumGrid(items) {
     });
 
     els.mainView.appendChild(row);
+}
+
+// ===== HIERARCHICAL VIEW FUNCTIONS =====
+
+/**
+ * Group albums by Album Artist
+ * @param {Array} items - Array of album objects
+ * @returns {Object} Grouped object {artistName: [albums]}
+ */
+function groupAlbumsByArtist(items) {
+    const albums = items.filter(i => i.type === 'album');
+    const grouped = {};
+    
+    albums.forEach(album => {
+        const artist = album.album_artist || album.artist || 'Unknown Artist';
+        if (!grouped[artist]) {
+            grouped[artist] = [];
+        }
+        grouped[artist].push(album);
+    });
+    
+    return grouped;
+}
+
+/**
+ * Sort grouped albums: Artists alphabetically, then albums by year within each artist
+ * @param {Object} grouped - Grouped object from groupAlbumsByArtist
+ * @returns {Array} Array of [artistName, albums] sorted
+ */
+function sortGroupedAlbums(grouped) {
+    // Convert to array and sort artists alphabetically
+    const sortedArtists = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+    
+    // Sort albums within each artist by year (oldest to newest)
+    const result = sortedArtists.map(artist => {
+        const albums = grouped[artist].sort((a, b) => {
+            const yearA = parseInt(a.year) || 9999; // Albums without year go to end
+            const yearB = parseInt(b.year) || 9999;
+            return yearA - yearB;
+        });
+        return [artist, albums];
+    });
+    
+    return result;
+}
+
+/**
+ * Render hierarchical view: Group by Artist -> Sort by Year
+ * @param {Array} items - Array of items (dirs + albums)
+ */
+function renderGroupedAlbums(items) {
+    els.mainView.innerHTML = '';
+    
+    if (items.length === 0) {
+        els.mainView.innerHTML = '<div class="alert alert-info">No items found.</div>';
+        return;
+    }
+    
+    // Separate directories and albums
+    const dirs = items.filter(i => i.type === 'dir');
+    const albums = items.filter(i => i.type === 'album' || i.type === 'merged_split');
+    
+    // Show directories first (if any)
+    if (dirs.length > 0) {
+        const dirSection = document.createElement('div');
+        dirSection.className = 'mb-4';
+        
+        const dirHeader = document.createElement('div');
+        dirHeader.className = 'artist-header mb-3';
+        dirHeader.innerHTML = `
+            <h5 class="text-white mb-2">
+                <i class="bi bi-folder-fill text-warning"></i> Folders
+                <span class="badge bg-secondary ms-2">${dirs.length}</span>
+            </h5>
+            <hr class="border-secondary mt-2">
+        `;
+        dirSection.appendChild(dirHeader);
+        
+        const dirRow = document.createElement('div');
+        dirRow.className = 'row g-3';
+        
+        dirs.forEach(dir => {
+            const col = document.createElement('div');
+            col.className = 'col-6 col-md-4 col-lg-3 col-xl-2';
+            
+            const card = document.createElement('div');
+            card.className = 'card h-100 border-0 shadow-sm album-card';
+            card.style.cursor = 'pointer';
+            card.innerHTML = `
+                <div class="ratio ratio-1x1 card-img-top bg-body-secondary position-relative d-flex align-items-center justify-content-center">
+                    <i class="bi bi-folder-fill fs-1 text-warning"></i>
+                </div>
+                <div class="card-body p-2">
+                    <h6 class="card-title text-truncate small mb-0 text-body">${dir.name}</h6>
+                </div>
+            `;
+            card.onclick = () => loadFolders(dir.path);
+            
+            col.appendChild(card);
+            dirRow.appendChild(col);
+        });
+        
+        dirSection.appendChild(dirRow);
+        els.mainView.appendChild(dirSection);
+    }
+    
+    // Group and sort albums
+    if (albums.length === 0) {
+        if (dirs.length === 0) {
+            els.mainView.innerHTML = '<div class="alert alert-info">No albums found.</div>';
+        }
+        return;
+    }
+    
+    const grouped = groupAlbumsByArtist(albums);
+    const sortedGroups = sortGroupedAlbums(grouped);
+    
+    // Render each artist group
+    sortedGroups.forEach(([artist, artistAlbums]) => {
+        const artistSection = document.createElement('div');
+        artistSection.className = 'artist-group mb-4';
+        
+        // Artist Header
+        const artistHeader = document.createElement('div');
+        artistHeader.className = 'artist-header mb-3';
+        artistHeader.innerHTML = `
+            <h5 class="text-white mb-2">
+                <i class="bi bi-person-fill text-info"></i> ${artist}
+                <span class="badge bg-secondary ms-2">${artistAlbums.length} album${artistAlbums.length !== 1 ? 's' : ''}</span>
+            </h5>
+            <hr class="border-secondary mt-2">
+        `;
+        artistSection.appendChild(artistHeader);
+        
+        // Albums Grid
+        const albumsRow = document.createElement('div');
+        albumsRow.className = 'artist-albums row g-3';
+        
+        artistAlbums.forEach(album => {
+            const col = document.createElement('div');
+            col.className = 'col-6 col-md-4 col-lg-3 col-xl-2 album-col';
+            
+            const card = document.createElement('div');
+            card.className = 'card h-100 border-0 shadow-sm album-card position-relative';
+            card.dataset.path = album.path;
+            card.style.cursor = 'pointer';
+            
+            const coverSrc = album.has_cover
+                ? `api/scan?action=get_cover&path=${encodeURIComponent(album.path)}`
+                : 'assets/default-cover.png';
+            
+            const year = album.year || '?';
+            const yearBadge = `<div class="album-card-year badge bg-dark bg-opacity-75 position-absolute top-0 end-0 m-2">${year}</div>`;
+            
+            if (album.type === 'merged_split') {
+                card.innerHTML = `
+                    <div class="ratio ratio-1x1 card-img-top bg-body-secondary position-relative">
+                        <img src="${coverSrc}" loading="lazy" class="object-fit-cover w-100 h-100" alt="Cover" onerror="this.src='assets/default-cover.png'">
+                        ${yearBadge}
+                        <div class="position-absolute bottom-0 start-0 m-1 badge bg-info shadow-sm" title="Merged Split"><i class="bi bi-diagram-3-fill"></i></div>
+                    </div>
+                    <div class="card-body p-2">
+                        <h6 class="card-title text-truncate small mb-0 text-body" title="${album.album}">${album.album}</h6>
+                    </div>
+                `;
+            } else {
+                card.innerHTML = `
+                    <div class="ratio ratio-1x1 card-img-top bg-body-secondary position-relative">
+                        <img src="${coverSrc}" loading="lazy" class="object-fit-cover w-100 h-100" alt="Cover" onerror="this.src='assets/default-cover.png'">
+                        ${yearBadge}
+                        ${!album.has_cover ? '<div class="position-absolute top-50 start-50 translate-middle text-muted"><i class="bi bi-music-note-beamed fs-1"></i></div>' : ''}
+                    </div>
+                    <div class="card-body p-2">
+                        <h6 class="card-title text-truncate small mb-0 text-body" title="${album.album}">${album.album}</h6>
+                    </div>
+                `;
+            }
+            
+            card.onclick = () => expandAlbum(album, card, col);
+            
+            col.appendChild(card);
+            albumsRow.appendChild(col);
+        });
+        
+        artistSection.appendChild(albumsRow);
+        els.mainView.appendChild(artistSection);
+    });
 }
 
 // Smart Grouping Logic

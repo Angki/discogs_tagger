@@ -47,6 +47,143 @@ class FileScanner
         return $this->scanForAlbums($currentPath);
     }
 
+    /**
+     * Get albums with metadata (album_artist, year, album) for hierarchical view
+     * Implements caching mechanism to avoid repeated tag reading
+     * 
+     * @param string $relativePath Relative path from music root
+     * @param bool $forceRefresh Force cache refresh
+     * @return array Array of albums with metadata
+     */
+    public function getAlbumsWithMetadata($relativePath, $forceRefresh = false)
+    {
+        $currentPath = realpath($this->rootPath . DIRECTORY_SEPARATOR . $relativePath);
+        if (!$currentPath)
+            return [];
+
+        // Check cache first (unless forced refresh)
+        if (!$forceRefresh) {
+            $cache = $this->loadCache();
+            if ($cache !== null) {
+                return $cache;
+            }
+        }
+
+        // Cache miss or forced refresh: scan and extract metadata
+        $albums = $this->scanForAlbums($currentPath);
+        
+        // Extract metadata from first track of each album
+        $tagManager = new TagManager();
+        foreach ($albums as &$album) {
+            $albumPath = realpath($this->rootPath . $album['path']);
+            if (!$albumPath) continue;
+            
+            $nodes = scandir($albumPath);
+            $metadata = null;
+            
+            foreach ($nodes as $node) {
+                if ($node === '.' || $node === '..') continue;
+                $filePath = $albumPath . DIRECTORY_SEPARATOR . $node;
+                
+                if (is_file($filePath) && $this->isMusic($node)) {
+                    try {
+                        $tags = $tagManager->readTags($filePath, $this->rootPath);
+                        $metadata = [
+                            'album_artist' => $tags['album_artist'] ?? ($tags['artist'] ?? 'Unknown Artist'),
+                            'year' => $tags['year'] ?? '',
+                            'album' => $tags['album'] ?? basename($albumPath)
+                        ];
+                        break; // Use first valid track
+                    } catch (\Exception $e) {
+                        log_message('error', 'Error reading metadata: ' . $e->getMessage());
+                        continue;
+                    }
+                }
+            }
+            
+            // Merge metadata into album node
+            if ($metadata) {
+                $album = array_merge($album, $metadata);
+            } else {
+                // Fallback for albums without readable tracks
+                $album['album_artist'] = 'Unknown Artist';
+                $album['year'] = '';
+                $album['album'] = $album['name'];
+            }
+        }
+        
+        // Save to cache
+        $this->saveCache($albums);
+        
+        return $albums;
+    }
+
+    /**
+     * Load cached album metadata from library_cache.json
+     * Cache is valid for 24 hours
+     * 
+     * @return array|null Array of albums or null if cache invalid/missing
+     */
+    private function loadCache()
+    {
+        $cacheFile = $this->getCacheFilePath();
+        
+        if (!file_exists($cacheFile)) {
+            return null;
+        }
+        
+        $cacheData = json_decode(file_get_contents($cacheFile), true);
+        
+        if (!$cacheData || !isset($cacheData['version']) || !isset($cacheData['timestamp'])) {
+            return null;
+        }
+        
+        // Check if cache is older than 24 hours
+        $cacheAge = time() - $cacheData['timestamp'];
+        $maxAge = 24 * 60 * 60; // 24 hours
+        
+        if ($cacheAge > $maxAge) {
+            return null; // Cache expired
+        }
+        
+        return $cacheData['albums'] ?? null;
+    }
+
+    /**
+     * Save album metadata to cache file
+     * 
+     * @param array $albums Array of albums with metadata
+     * @return bool Success status
+     */
+    private function saveCache($albums)
+    {
+        $cacheFile = $this->getCacheFilePath();
+        
+        $cacheData = [
+            'version' => '1.0',
+            'timestamp' => time(),
+            'albums' => $albums
+        ];
+        
+        try {
+            $result = file_put_contents($cacheFile, json_encode($cacheData, JSON_PRETTY_PRINT));
+            return $result !== false;
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to save cache: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get cache file path
+     * 
+     * @return string Full path to cache file
+     */
+    private function getCacheFilePath()
+    {
+        return $this->rootPath . DIRECTORY_SEPARATOR . 'library_cache.json';
+    }
+
     private function scanForAlbums($dir)
     {
         $albums = [];
@@ -157,7 +294,8 @@ class FileScanner
             'has_cover' => $hasCover,
             'cover' => null, // Null to save memory; frontend uses lazy loading
             'artist' => $firstTrack['album_artist'] ?? ($firstTrack['artist'] ?? 'Unknown Artist'),
-            'album' => $firstTrack['album'] ?? basename($path)
+            'album' => $firstTrack['album'] ?? basename($path),
+            // Note: year and album_artist will be added by getAlbumsWithMetadata() if needed
         ];
     }
 

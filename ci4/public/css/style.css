@@ -102,3 +102,98 @@ body {
 [data-bs-theme="light"] ::-webkit-scrollbar-thumb {
     background: #adb5bd;
 }
+
+/* ===== HIERARCHICAL VIEW STYLES ===== */
+
+/* Artist Group Container */
+.artist-group {
+    margin-bottom: 2.5rem;
+}
+
+/* Artist Header Styling */
+.artist-header {
+    position: relative;
+}
+
+.artist-header h5 {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.artist-header hr {
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+/* Optional: Sticky Artist Headers (enable for large libraries) */
+/*
+.artist-header {
+    position: sticky;
+    top: 56px;
+    background: var(--bs-body-bg);
+    z-index: 10;
+    padding: 0.5rem 0;
+    margin-top: -0.5rem;
+}
+*/
+
+/* Artist Albums Grid */
+.artist-albums {
+    padding-left: 1rem;
+}
+
+/* Year Badge on Album Cards */
+.album-card-year {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    z-index: 5;
+}
+
+/* Enhanced Album Card for Hierarchical View */
+.artist-albums .album-card {
+    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.artist-albums .album-card:hover .album-card-year {
+    background-color: var(--bs-primary) !important;
+    transform: scale(1.05);
+}
+
+/* Responsive Adjustments for Hierarchical View */
+@media (max-width: 768px) {
+    .artist-header h5 {
+        font-size: 1.1rem;
+    }
+
+    .artist-albums {
+        padding-left: 0;
+    }
+
+    .album-card-year {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.4rem;
+    }
+}
+
+/* Dark/Light Theme Specific Adjustments */
+[data-bs-theme="dark"] .artist-header h5 {
+    color: #f8f9fa;
+}
+
+[data-bs-theme="light"] .artist-header h5 {
+    color: #212529;
+}
+
+[data-bs-theme="dark"] .artist-header hr {
+    border-color: #495057;
+}
+
+[data-bs-theme="light"] .artist-header hr {
+    border-color: #dee2e6;
+}
